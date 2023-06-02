@@ -48,5 +48,8 @@ setup(
 	install_requires=[
         'click',
         'requests',
+        'numpy',
+        'pandas',
+        'tqdm',
 	],
 )
