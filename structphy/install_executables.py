@@ -94,7 +94,7 @@ def install_consense(CACHE_DIR, CONSENSE_URL):
         URL = CONSENSE_URL
     )    
 
-    make_process = subprocess.run(['make', '-f', 'Makefile.osx', 'consense'], cwd=str(CACHE_DIR / 'phylip-master' / 'src'), check=False, capture_output=True, text=True)
+    make_process = subprocess.run(['make', '-f', 'Makefile.osx', 'consense'], cwd=str(CACHE_DIR / 'phylip-master' / 'src'), check=True, capture_output=True, text=True)
     make_logs = make_process.stdout + make_process.stderr
 
     subprocess.run(['cp', str(CACHE_DIR / 'phylip-master' / 'src' / 'consense'), str(CACHE_DIR / 'consense')], check=True)

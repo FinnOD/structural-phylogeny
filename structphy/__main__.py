@@ -7,6 +7,7 @@ import multiprocessing
 from structphy.install_executables import install_tmalign, install_fastme, install_consense
 from structphy.generate_matrices import generate_bootstrap_matrices_from_structures
 from structphy.generate_trees import matrices_to_fastme_newick
+from structphy.generate_consensus_tree import bootstrap_trees_to_consensus
 
 
 TMALIGN_URL = 'https://zhanggroup.org/TM-align/TMalign.cpp'
@@ -20,9 +21,9 @@ def setup_working_dir():
     os.environ["STRUCTPHY_CACHE_DIR"] = str(CACHE_DIR)
     CACHE_DIR.mkdir(parents=False, exist_ok=True)
 
-    install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
-    install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
-    install_consense(CACHE_DIR, CONSENSE_URL) #.structphy/consense
+    # install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
+    # install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
+    # install_consense(CACHE_DIR, CONSENSE_URL) #.structphy/consense
 
 
     
@@ -30,7 +31,7 @@ def setup_working_dir():
 @click.option('-d', '--structdir', type=click.Path(file_okay=False, path_type=Path))
 @click.option('-f', '--fasta', type=click.File(mode='r'))
 @click.option('-t', '--threads', type=int, default=multiprocessing.cpu_count())
-@click.option('-n', '--n_bootstraps', type=int, default=10)
+@click.option('-n', '--n_bootstraps', type=int, default=3)
 def main(structdir: Path, fasta: io.TextIOWrapper, threads: int, n_bootstraps: int):
     setup_working_dir()
 
@@ -48,6 +49,8 @@ def main(structdir: Path, fasta: io.TextIOWrapper, threads: int, n_bootstraps: i
     # save matrices to csv on flag
 
     # generate trees from matrices
-    matrices_to_fastme_newick(bootstrap_matrices, n_threads=threads)
-        
+    bootstrap_trees = matrices_to_fastme_newick(bootstrap_matrices, n_threads=threads)
+
+    # generate consensus tree from bootstrap trees
+    consensus_tree = bootstrap_trees_to_consensus(bootstrap_trees)
     
