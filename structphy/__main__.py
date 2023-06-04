@@ -4,13 +4,14 @@ import os
 import io
 import multiprocessing
 
-from structphy.install_executables import install_tmalign, install_fastme
+from structphy.install_executables import install_tmalign, install_fastme, install_consense
 from structphy.generate_matrices import generate_bootstrap_matrices_from_structures
 from structphy.generate_trees import matrices_to_fastme_newick
 
 
 TMALIGN_URL = 'https://zhanggroup.org/TM-align/TMalign.cpp'
 FASTME_URL = 'http://www.atgc-montpellier.fr/download/sources/fastme/fastme-2.1.6.4.tar.gz'
+CONSENSE_URL = 'http://evolution.gs.washington.edu/phylip/download/phylip-3.697.tar.gz'
 
 
 def setup_working_dir():
@@ -19,8 +20,9 @@ def setup_working_dir():
     os.environ["STRUCTPHY_CACHE_DIR"] = str(CACHE_DIR)
     CACHE_DIR.mkdir(parents=False, exist_ok=True)
 
-    # install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
-    # install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
+    install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
+    install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
+    install_consense(CACHE_DIR, CONSENSE_URL) #.structphy/consense
 
 
     

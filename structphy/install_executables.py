@@ -46,27 +46,32 @@ def install_tmalign(CACHE_DIR, TMALIGN_URL):
     compile_logs = completed_process.stdout + completed_process.stderr
     os.chmod(executable, 0o777)
 
-def install_fastme(CACHE_DIR, FASTME_URL):
-    # Define the download location for the tarball, and the source code directory.
-    # Then remove that directory if it already exists.
-    FASTME_targz_filename = CACHE_DIR / os.path.basename(FASTME_URL)
-    FASTME_master_dir = CACHE_DIR / 'FastME-master'
+def download_extract_tar(CACHE_DIR: Path, tar_location: Path, extract_location: Path, URL: str):
     try:
-        shutil.rmtree(FASTME_master_dir)
+        shutil.rmtree(extract_location)
     except FileNotFoundError:
         pass
     
     # Download the fastme tarball
-    response = requests.get(FASTME_URL)
+    response = requests.get(URL)
     response.raise_for_status()
-    with open(FASTME_targz_filename, 'wb') as file:
+    with open(tar_location, 'wb') as file:
         file.write(response.content)
 
     # Extract the tarball
-    with tarfile.open(FASTME_targz_filename, 'r:gz') as tar:
+    with tarfile.open(tar_location, 'r:gz') as tar:
         extracted_dir = tar.getnames()[0]
         tar.extractall(path=CACHE_DIR)
-    (CACHE_DIR / extracted_dir).rename(FASTME_master_dir)
+    (CACHE_DIR / extracted_dir).rename(extract_location)
+
+def install_fastme(CACHE_DIR, FASTME_URL):
+
+    download_extract_tar(
+        CACHE_DIR = CACHE_DIR,
+        tar_location = CACHE_DIR / os.path.basename(FASTME_URL), 
+        extract_location = CACHE_DIR / 'FastME-master',
+        URL = FASTME_URL
+    )    
 
     # Run the configure script to generate the makefile
     configure_process = subprocess.run(['./configure'], cwd=str(CACHE_DIR / 'FastME-master'), check=True, capture_output=True, text=True)
@@ -79,3 +84,18 @@ def install_fastme(CACHE_DIR, FASTME_URL):
     # Copy the compiled executable and make sure its executable
     subprocess.run(['cp', str(CACHE_DIR / 'FastME-master' / 'src' / 'fastme'), str(CACHE_DIR / 'fastme')], check=True)
     os.chmod(str(CACHE_DIR / 'fastme'), 0o777)
+
+def install_consense(CACHE_DIR, CONSENSE_URL):
+    
+    download_extract_tar(
+        CACHE_DIR = CACHE_DIR,
+        tar_location = CACHE_DIR / os.path.basename(CONSENSE_URL), 
+        extract_location = CACHE_DIR / 'phylip-master',
+        URL = CONSENSE_URL
+    )    
+
+    make_process = subprocess.run(['make', '-f', 'Makefile.osx', 'consense'], cwd=str(CACHE_DIR / 'phylip-master' / 'src'), check=False, capture_output=True, text=True)
+    make_logs = make_process.stdout + make_process.stderr
+
+    subprocess.run(['cp', str(CACHE_DIR / 'phylip-master' / 'src' / 'consense'), str(CACHE_DIR / 'consense')], check=True)
+    os.chmod(str(CACHE_DIR / 'consense'), 0o777)
