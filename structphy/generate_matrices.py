@@ -39,7 +39,8 @@ def TMalign(pdb1: Path, pdb2: Path, tmalign_path: Path):
       'pdb_b': pdb2
   }
 
-def tmalign_wrapper(args): #required for multiprocessing
+# Wrapper required for multiprocessing
+def tmalign_wrapper(args): 
    return TMalign(args[0], args[1], args[2])
 
 def generate_matrix_from_bootstraps(structure_files: List[Path], n_threads: int) -> pd.DataFrame:
@@ -51,9 +52,9 @@ def generate_matrix_from_bootstraps(structure_files: List[Path], n_threads: int)
 
     # Run all tmaligns multithreaded
     tm_results = []
-    with Pool(n_threads) as p:
+    with Pool(n_threads) as pool:
         for tm_result in tqdm(
-            p.imap_unordered(tmalign_wrapper, all_structure_combinations),
+            pool.imap_unordered(tmalign_wrapper, all_structure_combinations),
             total=len(all_structure_combinations),
             leave=False,
             desc='Current bootstrap',
@@ -111,3 +112,5 @@ def generate_bootstrap_matrices_from_structures(structure_files: List[Path], n_t
     for i in tqdm(range(n_bootstraps), desc='Total bootstraps ', ascii=True, position=0):
         bootstrap_structures = [random.sample(bootstraps, 1)[0] for id, bootstraps in ids_dict.items()]
         bootstrap_matrices.append(generate_matrix_from_bootstraps(bootstrap_structures, n_threads=n_threads))
+    
+    return bootstrap_matrices
