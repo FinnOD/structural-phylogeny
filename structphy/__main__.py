@@ -39,9 +39,13 @@ def main(structdir: Path, fasta: io.TextIOWrapper, threads: int, n_bootstraps: i
         raise click.UsageError('Either a directory of structures (--structdir mydir/), OR a fasta file of sequences (--fasta myseqs.fa) needs to be provided.')
     
     if fasta:
-        pass
+        from structphy.run_inference_docker import run_esm_dropouts
+        print(fasta)
+        # run_esm_dropouts(fasta)
+
         # generate structures to .structphy/run_xxx dir
         # structdir = .structphy/run_xxx dir
+        # remove inserts
  
     structure_files = [(structdir / file).resolve() for file in os.listdir(structdir) if file.endswith('.pdb')]
     bootstrap_matrices = generate_bootstrap_matrices_from_structures(structure_files, n_threads=threads, n_bootstraps=n_bootstraps)
@@ -53,4 +57,9 @@ def main(structdir: Path, fasta: io.TextIOWrapper, threads: int, n_bootstraps: i
 
     # generate consensus tree from bootstrap trees
     consensus_tree = bootstrap_trees_to_consensus(bootstrap_trees)
+
+    # bootstrap against the consensus tree
     
+    # reweight the consensus branch lengths using distance matrices
+
+    # 
