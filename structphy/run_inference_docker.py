@@ -2,59 +2,60 @@ from pathlib import Path
 from typing import List
 import docker
 
-def run_esm_dropouts(share_dir: Path, fasta_in: Path, dropout: List[float] = None, max_tokens_per_batch: int =800) -> List[Path]: #returns list[pdb_file, pdb_file] 
+def run_esm_dropouts(
+        share_dir: Path, 
+        fasta_in: Path,
+        output_dir_name: str,
+        dropout: List[float] = None,
+        max_tokens_per_batch: int = 800
+    ) -> Path:
+    
+    container = None
     try:
-        share_dir_docker = '/mnt/bus'
-
+        share_dir_docker = '/home/appuser/bus'
         client = docker.from_env()
-        print(client)
         container = client.containers.run(
             'finnod/structphy-esmdropouts-openfold',
             name='structphy-exec',
             detach=True,
             tty=True,
             device_requests=[docker.types.DeviceRequest(count=-1, capabilities=[['gpu']])],
-            volumes={share_dir: {'bind': share_dir_docker, 'mode': 'rw'}},
+            volumes={str(share_dir.resolve()): {'bind': share_dir_docker, 'mode': 'rw'}},
+            user='appuser',
         )
-        print('container', container)
+        
         # Test
-        exec_command = container.exec_run('nvidia-smi')
-        print(exec_command.output.decode())
-
+        # exec_command = container.exec_run('nvidia-smi')
+        # print(exec_command.output.decode())
         
         # Docker local files
         pybin = '/opt/conda/envs/esmfold/bin/python3'
         infer = 'esm-dropouts/scripts/esmfold_inference.py'
-        input_fa_full = f'{share_dir_docker}/{str(fasta_in)}'
-        output_dir_docker = f'{share_dir_docker}/pdbout/'
+        input_fa_full = f'{share_dir_docker}/{str(fasta_in.name)}'
+        output_dir_docker = f'{share_dir_docker}/{output_dir_name}/'
         
         # Make the output dir
+        # RAISE if not empty?
         exec_command = container.exec_run(f'mkdir -p {output_dir_docker}')
         
         # Run the inference
-        inference_command = f'{pybin} {infer} -i {input_fa_full} -o {output_dir_docker} --max-tokens-per-batch {max_tokens_per_batch} '
+        inference_command = f'{pybin} {infer} -i {input_fa_full} -o {output_dir_docker} --max-tokens-per-batch {max_tokens_per_batch}'
         if dropout:
             dropout_str = ",".join([f'{x:.4f}' for x in dropout])
-            inference_command += f'--dropout {dropout_str}'
+            inference_command += f' --dropout {dropout_str}'
         
-        # print(inference command:
-        # print(inference_command)
-        # exec_command_gen = container.exec_run(inference_command, stream=True)
-        # for output in exec_command_gen.output:
-        #     if output:
-        #         print(output.decode().strip())
-
-        exec_command = container.exec_run(f'ls {output_dir_docker}')
-        out_ls = exec_command.output.decode().strip().split('\n')
-        return [share_dir+'pdbout/'+file for file in out_ls]
+        exec_command_gen = container.exec_run(inference_command, stream=True)
+        for output in exec_command_gen.output:
+            if output:
+                print(output.decode().strip())
+        
+        output_dir_local = share_dir/output_dir_name
+        return output_dir_local
 
         # Close and delete the container
     except Exception as e:
         raise e
     finally:
-        container.stop()
-        container.remove()
-        
-
-a = run_esm_dropouts('/home/ubuntu/bus/', 'single.fa', dropout=[0.99]*36)
-print(a)
+        if container:
+            container.stop()
+            container.remove()
