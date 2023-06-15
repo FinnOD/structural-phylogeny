@@ -5,7 +5,6 @@ import docker
 def run_esm_dropouts(
         share_dir: Path, 
         fasta_in: Path,
-        output_dir_name: str,
         dropout: List[float] = None,
         max_tokens_per_batch: int = 800
     ) -> Path:
@@ -32,7 +31,7 @@ def run_esm_dropouts(
         pybin = '/opt/conda/envs/esmfold/bin/python3'
         infer = 'esm-dropouts/scripts/esmfold_inference.py'
         input_fa_full = f'{share_dir_docker}/{str(fasta_in.name)}'
-        output_dir_docker = f'{share_dir_docker}/{output_dir_name}/'
+        output_dir_docker = share_dir_docker
         
         # Make the output dir
         # RAISE if not empty?
@@ -49,7 +48,7 @@ def run_esm_dropouts(
             if output:
                 print(output.decode().strip())
         
-        output_dir_local = share_dir/output_dir_name
+        output_dir_local = share_dir
         return output_dir_local
 
         # Close and delete the container

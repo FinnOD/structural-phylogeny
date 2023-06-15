@@ -31,10 +31,11 @@ def setup_working_dir():
 @click.option('-f', '--fasta', type=click.Path(exists=True,  path_type=Path, resolve_path=True))
 @click.option('-t', '--threads', type=int, default=multiprocessing.cpu_count())
 @click.option('-n', '--n_bootstraps', type=int, default=10)
+@click.option('--n_variants', type=int, default=10)
 @click.option('--drop_inserts', is_flag=True, show_default=True, default=False)
 @click.option('--fold_dir', type=click.Path(file_okay=False, path_type=Path, resolve_path=True))
 @click.option('--dropout', type=str)
-def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstraps: int, drop_inserts: bool, dropout: str):
+def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstraps: int, drop_inserts: bool, dropout: str, n_variants: int):
     setup_working_dir()
 
     if (structdir is None) is (fasta is None): #XOR check, has to be one or the other
@@ -58,7 +59,7 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
             raise click.UsageError(f'Tried to use {fold_dir}, but it wasn\'t empty.')
 
         # Write bootstrap fasta temporarily to the fold_dir
-        bootstrap_fasta_out = fasta_dict_to_bootstrap_string(fasta_dict_no_gaps, n_bootstraps)
+        bootstrap_fasta_out = fasta_dict_to_bootstrap_string(fasta_dict_no_gaps, n_variants)
         bootstrap_fasta_path = fold_dir / 'bootstraps.fasta'
         with open(bootstrap_fasta_path, 'w') as f:
             f.write(bootstrap_fasta_out)
@@ -68,10 +69,10 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
         if dropout:
             dropout = [float(x) for x in dropout.split(',')]
 
+        click.echo('Pulling and folding using docker image \'finnod/structphy-esmdropouts-openfold\'')
         structdir = run_esm_dropouts( #fasta_in and output_dir_name must be in share_dir for docker!
             share_dir=fold_dir,
             fasta_in=bootstrap_fasta_path,
-            output_dir_name=fold_dir,
             dropout=dropout,
             max_tokens_per_batch=1300, #click option or maybe auto? not sure
         )
@@ -94,7 +95,7 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
 
     # bootstrap against the consensus tree
     print(consensus_tree)
-    
+
     # reweight the consensus branch lengths using distance matrices and optimise routine
 
     # 
