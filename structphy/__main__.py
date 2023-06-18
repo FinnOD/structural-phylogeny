@@ -44,9 +44,10 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
     if fasta:
         from structphy.run_inference_docker import run_esm_dropouts
         from structphy.fasta_loading import fasta_to_dict, fasta_dict_to_bootstrap_string
+        from structphy.extract_conserved_pdb import remove_inserts_from_structure
 
         # Read fasta file into a dict like {id: sequence, ...}
-        fasta_dict_full, fasta_dict_no_gaps = fasta_to_dict(fasta, drop_inserts)
+        fasta_dict_full, fasta_dict_no_gaps = fasta_to_dict(fasta)
         
         # If a directory for the folding files isn't given make one at ./fastaname_folddir/
         if not fold_dir:
@@ -79,8 +80,20 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
 
         # Remove bootstraps.fa file in fold_dir after structures are made
         os.remove(bootstrap_fasta_path)
-
         structdir = fold_dir
+
+        # if remove inserts, make a new _conserved directory then strip the inserts from the folded directory
+        if drop_inserts:
+            full_pdbs = [(fold_dir / file).resolve() for file in os.listdir(fold_dir) if file.endswith('.pdb')]
+            out_conserved_dir = fold_dir.parent / (fold_dir.stem + '_conserved')
+            out_conserved_dir.mkdir(exist_ok=True)
+            for fulL_pdb_file in full_pdbs:
+                pdb_name = fulL_pdb_file.name
+                id = fulL_pdb_file.stem.split('#')[0]
+                pdb_file_out = out_conserved_dir / pdb_name
+                remove_inserts_from_structure(fulL_pdb_file,  fasta_dict_full[id], pdb_file_out)
+            
+            structdir = out_conserved_dir
  
     structure_files = [(structdir / file).resolve() for file in os.listdir(structdir) if file.endswith('.pdb')]
 

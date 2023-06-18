@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Tuple, Dict
 import re
 
-def fasta_to_dict(fasta_file: Path, drop_inserts: bool) -> Tuple[Dict[str, str], Dict[str, str]]:
+def fasta_to_dict(fasta_file: Path) -> Tuple[Dict[str, str], Dict[str, str]]:
     
     with open(fasta_file, 'r') as f:
             fasta_read = f.read()
@@ -11,12 +11,8 @@ def fasta_to_dict(fasta_file: Path, drop_inserts: bool) -> Tuple[Dict[str, str],
     fasta_dict_full = {id_seq_pair[0]:id_seq_pair[1] for id_seq_pair in id_seq_items}
 
     # Keep gaps ('-') and inserts (lowercase) in fasta_dict
-    # Then remove the gaps and the inserts, but keep them if --drop_inserts
-    fasta_dict_no_gaps = {id: seq.replace('-', '') for id, seq in fasta_dict_full.items()}
-    if not drop_inserts:
-        fasta_dict_no_gaps = {id: seq.upper() for id, seq in fasta_dict_no_gaps.items()}
-    else:
-        fasta_dict_no_gaps = {id: re.sub(r'[a-z]', '', seq) for id, seq in fasta_dict_no_gaps.items()}
+    # Remove the gaps and uppercase inserts in fasta_dict_no_gaps
+    fasta_dict_no_gaps = {id: seq.replace('-', '').upper() for id, seq in fasta_dict_full.items()}
     
     return fasta_dict_full, fasta_dict_no_gaps
 
