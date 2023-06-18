@@ -91,7 +91,7 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, threads: int, n_bootstrap
     bootstrap_trees = matrices_to_fastme_newick(bootstrap_matrices, n_threads=threads)
 
     # generate consensus tree from bootstrap trees
-    consensus_tree = bootstrap_trees_to_consensus(bootstrap_trees)
+    consensus_tree = bootstrap_trees_to_consensus(bootstrap_trees, fake_outgroup=True)
 
     # bootstrap against the consensus tree
     print(consensus_tree)
