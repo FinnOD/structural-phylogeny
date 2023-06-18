@@ -51,5 +51,6 @@ setup(
         'numpy',
         'pandas',
         'tqdm',
+        'ete3',
 	],
 )
