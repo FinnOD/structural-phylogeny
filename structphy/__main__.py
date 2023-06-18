@@ -8,6 +8,7 @@ from structphy.generate_matrices import generate_bootstrap_matrices_from_structu
 from structphy.generate_trees import matrices_to_fastme_newick
 from structphy.generate_consensus_tree import bootstrap_trees_to_consensus
 from structphy.branch_lengths import get_stacked, get_mean_distance_matrix, get_upgma_tree
+from structphy.bootstrapping import bootstrap_against_tree
 
 
 TMALIGN_URL = 'https://zhanggroup.org/TM-align/TMalign.cpp'
@@ -112,13 +113,14 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, outtree: Path, threads: i
     with open('consensus_tree.newick', 'w') as f:
         f.write(consensus_tree)
 
-    # bootstrap against the consensus tree
-
-    
     # reweight the consensus branch lengths using distance matrices and optimise routine
     # use flag for upgma vs leastsq
     upgma_tree = get_upgma_tree(consensus_tree, mean_distance_matrix)
-    with open(outtree if outtree else 'upgma_tree.newick', 'w') as f:
-        f.write(upgma_tree)
+
+    # bootstrap against the consensus tree
+    # Must be last as ete3 can't read this bootstrap format.
+    bootstrapped_tree = bootstrap_against_tree(bootstrap_trees, upgma_tree)
+    with open(outtree if outtree else 'boostrapped_upgma_tree.newick', 'w') as f:
+        f.write(bootstrapped_tree)
 
     
