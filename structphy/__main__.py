@@ -7,7 +7,7 @@ from structphy.install_executables import install_tmalign, install_fastme, insta
 from structphy.generate_matrices import generate_bootstrap_matrices_from_structures
 from structphy.generate_trees import matrices_to_fastme_newick
 from structphy.generate_consensus_tree import bootstrap_trees_to_consensus
-from structphy.branch_lengths import get_stacked, get_mean_distance_matrix, get_upgma_tree
+from structphy.branch_lengths import get_stacked, get_mean_distance_matrix, get_upgma_tree, optimise_branch_lengths
 from structphy.bootstrapping import bootstrap_against_tree
 
 
@@ -22,9 +22,9 @@ def setup_working_dir():
     os.environ["STRUCTPHY_CACHE_DIR"] = str(CACHE_DIR)
     CACHE_DIR.mkdir(parents=False, exist_ok=True)
 
-    # install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
-    # install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
-    # install_consense(CACHE_DIR, CONSENSE_URL) #.structphy/consense
+    install_tmalign(CACHE_DIR, TMALIGN_URL) #.structphy/TMalign
+    install_fastme(CACHE_DIR, FASTME_URL) #.structphy/fastme
+    install_consense(CACHE_DIR, CONSENSE_URL) #.structphy/consense
 
 
     
@@ -103,10 +103,16 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, outtree: Path, threads: i
     bootstrap_matrices = generate_bootstrap_matrices_from_structures(structure_files, n_threads=threads, n_bootstraps=n_bootstraps)
     stacked_matrices = get_stacked(bootstrap_matrices)
     mean_distance_matrix = get_mean_distance_matrix(stacked_matrices)
-    # save matrices to csv on flag
+    Path('bootstrap_matrices/').mkdir(exist_ok='True')
+    for i, matrix in enumerate(bootstrap_matrices):
+        matrix.to_csv(f'bootstrap_matrices/bootstrap_matrix_{i}.csv', float_format='%.8G')
 
     # generate trees from matrices
     bootstrap_trees = matrices_to_fastme_newick(bootstrap_matrices, n_threads=threads)
+    with open('bootstrap_trees.newick', 'w') as f:
+        for tree in bootstrap_trees:
+            f.write(tree+'\n')
+
 
     # generate consensus tree from bootstrap trees
     consensus_tree = bootstrap_trees_to_consensus(bootstrap_trees, fake_outgroup=True)
@@ -116,6 +122,11 @@ def main(structdir: Path, fold_dir: Path, fasta: Path, outtree: Path, threads: i
     # reweight the consensus branch lengths using distance matrices and optimise routine
     # use flag for upgma vs leastsq
     upgma_tree = get_upgma_tree(consensus_tree, mean_distance_matrix)
+    with open(outtree if outtree else 'upgma_tree.newick', 'w') as f:
+        f.write(upgma_tree)
+
+    # optimised_tree = optimise_branch_lengths(upgma_tree, mean_distance_matrix.to_numpy())
+    # print(optimised_tree)
 
     # bootstrap against the consensus tree
     # Must be last as ete3 can't read this bootstrap format.

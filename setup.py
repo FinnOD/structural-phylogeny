@@ -52,5 +52,8 @@ setup(
         'pandas',
         'tqdm',
         'ete3',
+        'phylodm',
+        'dendropy',
+        'lmfit'
 	],
 )
