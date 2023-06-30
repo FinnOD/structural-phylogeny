@@ -66,7 +66,7 @@ def get_upgma_tree(newick_tree: str, distance_matrix):
         node.children[1].dist = sibling_distance/3
         node.children[2].dist = sibling_distance/3
 
-    return tree.write(format=0)
+  return tree.write(format=5)
 
 def branch_lengths_on_tree(new_lengths, tree: Tree):
   tree = tree.copy()

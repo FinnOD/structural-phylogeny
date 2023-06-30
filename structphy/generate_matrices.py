@@ -114,3 +114,14 @@ def generate_bootstrap_matrices_from_structures(structure_files: List[Path], n_t
         bootstrap_matrices.append(generate_matrix_from_bootstraps(bootstrap_structures, n_threads=n_threads))
     
     return bootstrap_matrices
+
+def make_fake_outgroups(distance_matrices: List[pd.DataFrame], fake_outgroup: str) -> List[pd.DataFrame]:
+    
+    faked_distance_matrices = []
+    for distance_matrix in distance_matrices:
+        distance_matrix[fake_outgroup] = 1_000_000.0
+        distance_matrix.loc[fake_outgroup] = 1_000_000.0
+        distance_matrix[fake_outgroup].loc[fake_outgroup] = 0.0
+        faked_distance_matrices.append(distance_matrix)
+
+    return faked_distance_matrices

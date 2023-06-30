@@ -5,45 +5,39 @@ import subprocess
 import os
 from ete3 import Tree
 
-def make_command_file(command_path: Path, tree_path: Path):
+def make_command_file(command_path: Path, tree_path: Path, outgroup_position: int):
     with open(command_path, 'w') as f:
         f.write('\n')
         f.write(str(tree_path.resolve())+'\n')
+        if outgroup_position:
+            f.write('O\n')
+            f.write(f'{outgroup_position+1}\n')
         f.write('Y\n')
         f.write('\n')
-
-def add_outgroup(tree_newick: str, outgroup_name: str) -> str:
-    # Can't use ete3 because it doesn't place the outgroup as the first group
-    # PHYLIP consense goes by leaf number, so here we can assure the outgroup as #1
-    return f"({outgroup_name}:1.0, {tree_newick.replace(';', '')});"
 
 def remove_outgroup(tree_newick: str, outgroup_name: str) -> str:
     tree = Tree(tree_newick)
 
     outgroup_node = tree.search_nodes(name=outgroup_name)[0]
-    # We added the outgroup, so there should only be one sister to it
-    assert len(outgroup_node.up.children) == 2
-    left_root = outgroup_node.up.children[0]
-    right_root = outgroup_node.up.children[1]
+    outgroup_node.delete()
+
+    for node in list(tree.traverse()):
+        if len(node.children) == 1:
+            return node.children[0].write(format=5)
+
+    return tree.write(format=5)
     
-    # Return the root of the tree as the sister of the outgroup.
-    # As it was before we added the outgroup.
-    if left_root.name == outgroup_name:
-        return right_root.write(format=0)
-    if right_root.name == outgroup_name:
-        return left_root.write(format=0)
-    
-def bootstrap_trees_to_consensus(bootstrap_trees: List[str], fake_outgroup: bool) -> str:
+def bootstrap_trees_to_consensus(bootstrap_trees: List[str], outgroup_name: str) -> str:
     CACHE_DIR = Path(os.environ["STRUCTPHY_CACHE_DIR"])
 
-    outgroup_name = '!_OUTGROUP_!'
-    if fake_outgroup:
-        outgrouped_trees = [add_outgroup(newick, outgroup_name) for newick in bootstrap_trees]
-        # Check to make sure that as text, the first group is the outgroup. 
-        # This is required by consense as it uses numbered groups not the names.
-        first_node = set(x.split(':')[0].replace('(', '').replace(')', '').replace(':', '') for x in outgrouped_trees)
-        assert first_node == set([outgroup_name]), (f'{first_node} != {set([outgroup_name])}')
-        bootstrap_trees = outgrouped_trees
+    outgroup_position = None
+    if outgroup_name:
+        outgrouped_trees = [Tree(newick) for newick in bootstrap_trees]
+        leaves_all = [tree.get_leaf_names() for tree in outgrouped_trees]
+        outgroup_positions = set(leaves_list.index(outgroup_name) for leaves_list in leaves_all)
+        assert len(outgroup_positions) == 1
+        outgroup_position = outgroup_positions.pop()
+        print(outgroup_position)
 
 
     # Set up tempdir for running consense in
@@ -51,7 +45,7 @@ def bootstrap_trees_to_consensus(bootstrap_trees: List[str], fake_outgroup: bool
         temp_dir_path = Path(tmpdirname)
         command_path = temp_dir_path / 'command'
         intrees_path = temp_dir_path / 'intree'
-        make_command_file(command_path, intrees_path)
+        make_command_file(command_path, intrees_path, outgroup_position=outgroup_position)
 
         # Have to use a shell script to get around UI of consense
         with open(temp_dir_path / 'run.sh', 'w') as f:
@@ -67,7 +61,7 @@ def bootstrap_trees_to_consensus(bootstrap_trees: List[str], fake_outgroup: bool
         with open(temp_dir_path / 'outtree', 'r') as f:
             consensus_tree = f.read().replace('\n', '').strip()
     
-    if fake_outgroup:
+    if outgroup_name:
         consensus_tree = remove_outgroup(consensus_tree, outgroup_name)
 
     return consensus_tree
