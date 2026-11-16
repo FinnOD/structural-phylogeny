@@ -8,8 +8,9 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Protocol
+from unicodedata import normalize
 
-from structphy.fasta_loading import fasta_to_dict
+from structphy.fasta_loading import parse_fasta
 
 MODEL_NAME = "facebook/esmfold_v1"
 MODEL_REVISION = "75a3841ee059df2bf4d56688166c8fb459ddd97a"
@@ -80,9 +81,7 @@ def _load_backend(
 
 
 def _validate_ids(sequences: dict[str, str]) -> None:
-    if not sequences:
-        message = "The input FASTA contains no sequences."
-        raise FoldError(message)
+    filename_ids: dict[str, str] = {}
     for name, sequence in sequences.items():
         if (
             not name.strip()
@@ -97,6 +96,12 @@ def _validate_ids(sequences: dict[str, str]) -> None:
         if not sequence:
             message = f"Sequence {name!r} is empty after removing alignment gaps."
             raise FoldError(message)
+        filename_key = normalize("NFD", normalize("NFD", name).casefold())
+        if filename_key in filename_ids:
+            other = filename_ids[filename_key]
+            message = f"Sequence IDs {other!r} and {name!r} would collide as PDB filenames on a Mac."
+            raise FoldError(message)
+        filename_ids[filename_key] = name
 
 
 def _validate_pdb(pdb: str, n_residues: int) -> int:
@@ -138,11 +143,7 @@ def fold_fasta(
     chunk_size: int | None = None,
     threads: int = 4,
 ) -> Path:
-    """Publish a complete PDB directory, or leave the destination absent on failure.
-
-    FASTA parsing intentionally uses the existing parser. See docs/folding.md for
-    its single-line sequence and duplicate-header limitations.
-    """
+    """Publish a complete PDB directory, or leave the destination absent on failure."""
     if n_variants < 1 or threads < 1 or (chunk_size is not None and chunk_size < 1):
         message = "Variant count, thread count and chunk size must be positive."
         raise FoldError(message)
@@ -157,9 +158,9 @@ def fold_fasta(
         raise FoldError(message)
     try:
         input_bytes = fasta.read_bytes()
-        _, sequences = fasta_to_dict(fasta)
-    except (OSError, IndexError) as error:
-        message = f"Could not read FASTA {fasta}: {error}. Use one sequence line per record."
+        _, sequences = parse_fasta(input_bytes.decode("utf-8-sig"))
+    except (OSError, ValueError) as error:
+        message = f"Could not read FASTA {fasta}: {error}"
         raise FoldError(message) from error
     _validate_ids(sequences)
     backend = _load_backend(dropout, model_dir, chunk_size, threads)

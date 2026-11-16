@@ -56,7 +56,7 @@ def fake_backend(monkeypatch):
 @pytest.fixture
 def fasta(tmp_path: Path) -> Path:
     path = tmp_path / "input.fasta"
-    path.write_text(">B\nAA\n>A\nA-a\n")
+    path.write_bytes("\ufeff>B\r\nA\r\nA\r\n\r\n>A\r\nA-\r\na".encode())
     return path
 
 
@@ -160,6 +160,33 @@ def test_unsafe_filename_rejected_before_loading(name, fasta, tmp_path, fake_bac
     with pytest.raises(folding.FoldError, match="not safe"):
         folding.fold_fasta(fasta, tmp_path / "folds")
     assert not loads
+
+
+@pytest.mark.parametrize(
+    ("content", "diagnostic"),
+    [
+        (b">A\nAA\n>A\nCC\n", "Duplicate FASTA header 'A' at line 3"),
+        (b"AA\n>A\nAA\n", "Expected a FASTA header before sequence data at line 1"),
+        (b"> \nAA\n", "Empty FASTA header at line 1"),
+        (b">A\n>B\nAA\n", "FASTA record 'A' contains no sequence"),
+        (b">A\nAA>B\n", "Unexpected '>' in FASTA sequence data at line 2"),
+        (b"\n", "The input FASTA contains no sequences"),
+        (b">A\n\xff\n", "invalid start byte"),
+        (b">Taxon\nAA\n>taxon\nAA\n", "would collide as PDB filenames"),
+        (">Caf\u00e9\nAA\n>Cafe\u0301\nAA\n".encode(), "would collide as PDB filenames"),
+    ],
+)
+def test_invalid_fasta_rejected_before_loading(content, diagnostic, fasta, tmp_path, fake_backend):
+    _, loads = fake_backend
+    fasta.write_bytes(content)
+    destination = tmp_path / "folds"
+    result = CliRunner().invoke(
+        cli.main, ["fold", "--fasta", str(fasta), "--fold-dir", str(destination), "--dropout", "0"]
+    )
+    assert result.exit_code == 1
+    assert diagnostic in result.output
+    assert not loads
+    assert not destination.exists()
 
 
 @pytest.mark.usefixtures("fake_backend")

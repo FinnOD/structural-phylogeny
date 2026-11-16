@@ -20,8 +20,8 @@ have been removed. [Usage and installation](folding.md).
   effective seeds, output counts, timings and observed peak CUDA memory.
 - Scalar and 36-layer dropout schedules are supported, along with a local
   checkpoint directory and folding-trunk chunk size.
-- The FASTA parser is unchanged. Wrapped records and duplicate-header handling
-  are explicitly deferred; use single-line sequences and unique full headers.
+- The original HPC validation used single-line sequences and unique full headers.
+  See the [folding guide](folding.md#fasta-input) for current FASTA behavior.
 
 Omitting dropout on the combined FASTA-to-tree path retains zero attention
 dropout and evaluation mode. Supplying dropout now affects ESM-2 attention
@@ -176,5 +176,3 @@ dependencies. Native execution on a Mac was not available during this session.
   Tests and tree generation completed successfully.
 - Local checkpoint provenance is user-supplied; a revision is not asserted for
   arbitrary directories. Keep staged checkpoints pinned and documented.
-- FASTA parser limitations are documented in the guide and deliberately remain
-  follow-up work.

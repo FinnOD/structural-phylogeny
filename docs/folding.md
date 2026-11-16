@@ -162,13 +162,13 @@ top-level options are rejected. For the combined `--fasta --drop-inserts`
 workflow, the sibling `<fold-dir>_conserved` directory must also be absent,
 including an empty directory. This prevents stale predictions entering analysis.
 
-## FASTA parser work deliberately deferred
+## FASTA input
 
-The existing parser in `structphy/fasta_loading.py` has not been changed.
-Use one sequence line per record and unique full headers. It currently keeps
-only the first sequence line of wrapped records and silently collapses duplicate
-headers. Filename validation after parsing cannot recover those lost records.
-Wrapped-record parsing and duplicate-header rejection remain follow-up work.
+Sequence lines can wrap. StructPhy joins them and ignores whitespace within the
+sequence. It uses the full header, with surrounding whitespace removed, as
+the sequence ID. Empty records and duplicate headers fail before inference.
+IDs that differ only by case or equivalent Unicode spelling are also rejected
+before inference so the PDB names are distinct when copied to a Mac.
 
 Existing alignment cleanup removes hyphens and uppercases residues before
 folding. The combined FASTA-to-tree path retains its lowercase-insert handling

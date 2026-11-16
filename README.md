@@ -37,5 +37,4 @@ uv run --locked --extra fold structphy fold \
 Run in an allocated CUDA GPU job. Choose the dropout rate for your experiment;
 use zero for a baseline. Copy the resulting PDB directory to the Mac and use
 `--structdir` with the base install. The [folding guide](docs/folding.md)
-covers scheduler setup, offline checkpoints, reproducibility, and the existing
-FASTA parser limitations.
+covers scheduler setup, offline checkpoints, reproducibility, and FASTA input.

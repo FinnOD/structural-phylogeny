@@ -1,6 +1,6 @@
 # Dropout folding on an HPC
 
-Implementation status: the direct Transformers backend and `fold` extra are implemented in this repository. See [the folding guide](folding.md) and [validation handoff](hpc-folding-handoff.md). The plan below is retained as design context. FASTA parser changes (wrapped records and duplicate-header rejection) are explicitly deferred; the current parser is unchanged.
+The direct Transformers backend and `fold` extra are implemented. The plan below is retained as design context. See the [folding guide](folding.md) for current FASTA behavior and the [validation handoff](hpc-folding-handoff.md) for the original HPC results.
 
 StructPhy should provide an optional `structphy[fold]` install for Linux GPU nodes. Run folding in the cluster's Python environment under its scheduler. Keep the install recipe and the folding integration in this repo. The cluster already manages GPU allocation and drivers, so StructPhy can use the GPU allocated to the job directly. Retire the Docker SDK and the hard-coded Docker Hub image once the replacement works on a GPU node.
 

@@ -122,7 +122,10 @@ def main(
         structdir = _fold(fasta, fold_dir, n_variants, dropout, fold_seed, model_dir, chunk_size, threads)
 
         if drop_inserts:
-            fasta_dict_full, _ = fasta_to_dict(fasta)
+            try:
+                fasta_dict_full, _ = fasta_to_dict(fasta)
+            except (OSError, ValueError) as error:
+                raise click.ClickException(f"Could not read FASTA {fasta}: {error}") from error
             try:
                 conserved_dir.mkdir()
             except OSError as error:
