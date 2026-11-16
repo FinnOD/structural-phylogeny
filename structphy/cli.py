@@ -7,12 +7,50 @@ import pandas as pd
 from structphy.bootstrapping import bootstrap_against_tree
 from structphy.branch_lengths import get_mean_distance_matrix, get_stacked, get_upgma_tree
 from structphy.executables import find_executable
+from structphy.folding import FoldError, fold_fasta, parse_dropout
 from structphy.generate_consensus_tree import bootstrap_trees_to_consensus
 from structphy.generate_matrices import generate_bootstrap_matrices_from_structures, make_fake_outgroups
 from structphy.generate_trees import matrices_to_fastme_newick
 
 
-@click.command()
+def _dropout_option(_ctx: click.Context, _param: click.Parameter, value: str | None) -> list[float] | None:
+    if value is None:
+        return None
+    try:
+        return parse_dropout(value)
+    except FoldError as error:
+        raise click.BadParameter(str(error)) from error
+
+
+def _fold(
+    fasta: Path,
+    fold_dir: Path,
+    n_variants: int,
+    dropout: list[float] | None,
+    fold_seed: int | None,
+    model_dir: Path | None,
+    chunk_size: int | None,
+    threads: int,
+) -> Path:
+    click.echo(f"Folding sequences from {fasta}")
+    try:
+        result = fold_fasta(
+            fasta,
+            fold_dir,
+            n_variants=n_variants,
+            dropout=dropout,
+            fold_seed=fold_seed,
+            model_dir=model_dir,
+            chunk_size=chunk_size,
+            threads=threads,
+        )
+    except (FoldError, OSError) as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Saved PDBs and fold-manifest.json to {result}")
+    return result
+
+
+@click.group(invoke_without_command=True)
 @click.option("-d", "--structdir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option("-f", "--fasta", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("-dm", "--dmdir", type=click.Path(exists=True, file_okay=False, path_type=Path))
@@ -27,9 +65,14 @@ from structphy.generate_trees import matrices_to_fastme_newick
 @click.option("--n_variants", "--n-variants", type=click.IntRange(min=1), default=10, show_default=True)
 @click.option("--drop_inserts", "--drop-inserts", is_flag=True)
 @click.option("--fold_dir", "--fold-dir", type=click.Path(file_okay=False, path_type=Path))
-@click.option("--dropout", type=str)
+@click.option("--dropout", callback=_dropout_option, help="ESM-2 attention rate or comma-separated per-layer rates.")
+@click.option("--fold-seed", type=click.IntRange(min=0, max=2**63 - 1), help="Seed for folding, separate from --seed.")
+@click.option("--model-dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chunk-size", type=click.IntRange(min=1), help="Chunk folding-trunk attention to reduce GPU memory.")
 @click.option("--seed", type=int, help="Seed for sampling structure variants.")
+@click.pass_context
 def main(
+    ctx: click.Context,
     structdir: Path | None,
     fold_dir: Path | None,
     fasta: Path | None,
@@ -39,11 +82,23 @@ def main(
     threads: int,
     n_bootstraps: int,
     drop_inserts: bool,
-    dropout: str | None,
+    dropout: list[float] | None,
+    fold_seed: int | None,
+    model_dir: Path | None,
+    chunk_size: int | None,
     n_variants: int,
     seed: int | None,
 ) -> None:
-    """Build a phylogenetic tree from PDB structures or distance matrices."""
+    """Build a tree from structures/matrices/FASTA, or use fold to generate PDBs."""
+    if ctx.invoked_subcommand is not None:
+        misplaced = [
+            f"--{name.replace('_', '-')}"
+            for name in ctx.params
+            if ctx.get_parameter_source(name) == click.core.ParameterSource.COMMANDLINE
+        ]
+        if misplaced:
+            raise click.UsageError(f"Put options after the fold subcommand: {', '.join(misplaced)}")
+        return
     if sum(value is not None for value in (structdir, fasta, dmdir)) != 1:
         raise click.UsageError("Provide one input with --structdir, --fasta, or --dmdir.")
 
@@ -57,42 +112,21 @@ def main(
 
     if fasta is not None:
         from structphy.extract_conserved_pdb import remove_inserts_from_structure
-        from structphy.fasta_loading import fasta_dict_to_bootstrap_string, fasta_to_dict
+        from structphy.fasta_loading import fasta_to_dict
 
-        try:
-            from structphy.run_inference_docker import run_esm_dropouts
-        except ModuleNotFoundError as error:
-            if error.name != "docker":
-                raise
-            raise click.ClickException("FASTA input requires `uv sync --locked --extra folding`.") from error
-
-        try:
-            dropout_rates = [float(rate) for rate in dropout.split(",")] if dropout else None
-        except ValueError as error:
-            raise click.BadParameter("Expected comma-separated numbers.", param_hint="--dropout") from error
-
-        fasta_dict_full, fasta_dict_no_gaps = fasta_to_dict(fasta)
         if fold_dir is None:
             fold_dir = Path.cwd() / f"{fasta.stem}_folddir"
-        fold_dir.mkdir(parents=True, exist_ok=True)
-        if any(fold_dir.iterdir()):
-            raise click.UsageError(f"Folding directory must be empty: {fold_dir}")
-
-        bootstrap_fasta_path = fold_dir / "bootstraps.fasta"
-        bootstrap_fasta_path.write_text(fasta_dict_to_bootstrap_string(fasta_dict_no_gaps, n_variants))
-        try:
-            structdir = run_esm_dropouts(
-                share_dir=fold_dir,
-                fasta_in=bootstrap_fasta_path,
-                dropout=dropout_rates,
-                max_tokens_per_batch=1300,
-            )
-        finally:
-            bootstrap_fasta_path.unlink(missing_ok=True)
+        conserved_dir = fold_dir.parent / f"{fold_dir.name}_conserved"
+        if drop_inserts and (conserved_dir.exists() or conserved_dir.is_symlink()):
+            raise click.UsageError(f"Refusing to reuse an existing conserved directory: {conserved_dir}")
+        structdir = _fold(fasta, fold_dir, n_variants, dropout, fold_seed, model_dir, chunk_size, threads)
 
         if drop_inserts:
-            conserved_dir = fold_dir.with_name(f"{fold_dir.name}_conserved")
-            conserved_dir.mkdir(exist_ok=True)
+            fasta_dict_full, _ = fasta_to_dict(fasta)
+            try:
+                conserved_dir.mkdir()
+            except OSError as error:
+                raise click.ClickException(f"Could not create conserved directory {conserved_dir}: {error}") from error
             for pdb_file in fold_dir.glob("*.pdb"):
                 sequence_id = pdb_file.stem.split("#")[0]
                 remove_inserts_from_structure(pdb_file, fasta_dict_full[sequence_id], conserved_dir / pdb_file.name)
@@ -141,3 +175,31 @@ def main(
     # Add bootstrap support last because ETE 3 cannot read this output format.
     bootstrapped_tree = bootstrap_against_tree(bootstrap_trees, base_tree_newick)
     (outtree or Path("boostrapped_upgma_tree.newick")).write_text(bootstrapped_tree)
+
+
+@main.command("fold")
+@click.option("--fasta", "-f", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--fold-dir", required=True, type=click.Path(file_okay=False, path_type=Path))
+@click.option("--n-variants", type=click.IntRange(min=1), default=10, show_default=True)
+@click.option(
+    "--dropout",
+    required=True,
+    callback=_dropout_option,
+    help="ESM-2 attention dropout rate or per-layer rates; use 0 for a baseline.",
+)
+@click.option("--fold-seed", type=click.IntRange(min=0, max=2**63 - 1))
+@click.option("--model-dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--chunk-size", type=click.IntRange(min=1), help="Chunk folding-trunk attention to reduce GPU memory.")
+@click.option("--threads", type=click.IntRange(min=1), default=4, show_default=True)
+def fold_command(
+    fasta: Path,
+    fold_dir: Path,
+    n_variants: int,
+    dropout: list[float],
+    fold_seed: int | None,
+    model_dir: Path | None,
+    chunk_size: int | None,
+    threads: int,
+) -> None:
+    """Fold sequences on the allocated CUDA GPU and stop after writing PDBs."""
+    _fold(fasta, fold_dir, n_variants, dropout, fold_seed, model_dir, chunk_size, threads)

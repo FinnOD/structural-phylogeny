@@ -74,6 +74,13 @@ def test_uv_build_wheel_installs_runnable_tools(tmp_path: Path):
         assert "Root-Is-Purelib: false" in metadata
         assert any(name.endswith("/extra_metadata/native/fastme-2.1.6.4.tar.gz") for name in archive.namelist())
         assert all(f"structphy/_bin/{name}" in archive.namelist() for name in TOOLS)
+        (project_metadata,) = (entry for entry in archive.namelist() if entry.endswith(".dist-info/METADATA"))
+        requirements = archive.read(project_metadata).decode().splitlines()
+        assert "Provides-Extra: fold" in requirements
+        for dependency in ("torch==2.7.1", "transformers==4.57.2"):
+            assert any(line.startswith(f"Requires-Dist: {dependency};") and "fold" in line for line in requirements)
+        assert not any("docker" in line.lower() for line in requirements)
+        assert "structphy/run_inference_docker.py" not in archive.namelist()
 
     venv = tmp_path / "venv"
     subprocess.run(["uv", "venv", "--python", sys.executable, venv], check=True, timeout=30)
@@ -102,3 +109,32 @@ def test_uv_build_wheel_installs_runnable_tools(tmp_path: Path):
     assert binaries.is_relative_to(venv)
     assert [Path(path) for path in paths.splitlines()] == [binaries / name for name in TOOLS]
     assert_tools_work(binaries, tmp_path)
+
+    base_check = subprocess.run(
+        [
+            python,
+            "-I",
+            "-c",
+            "import importlib.util; assert importlib.util.find_spec('torch') is None; "
+            "assert importlib.util.find_spec('transformers') is None",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert base_check.returncode == 0, base_check.stderr
+    fasta = tmp_path / "input.fasta"
+    fasta.write_text(">A\nAA\n")
+    fold = subprocess.run(
+        [venv / "bin" / "structphy", "fold", "--fasta", fasta, "--fold-dir", tmp_path / "folds", "--dropout", "0"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert fold.returncode == 1
+    assert "structphy[fold]" in fold.stdout + fold.stderr
+    assert not (tmp_path / "folds").exists()

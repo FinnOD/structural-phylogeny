@@ -18,6 +18,24 @@ The sync uses Python 3.12 and installs TM-align, FastME, and PHYLIP `consense` a
 
 - Use `--dmdir` for distance-matrix CSVs. Put row labels in the first column and use matching column labels in the same order.
 - Use `--base-tree` to apply bootstrap support to an existing Newick tree with matching taxa.
-- For FASTA input, run `uv run --locked --extra folding structphy --fasta input.fasta` on a host with Docker and NVIDIA GPU access.
+- For FASTA input on a Linux NVIDIA GPU node, install `uv sync --locked --extra fold`. Use `structphy fold` to write PDBs, or retain `structphy --fasta` for the combined folding and tree workflow. See [HPC folding](docs/folding.md).
 
 StructPhy writes intermediate files to the working directory. Run each analysis in its own directory under the Git-ignored `runs/`, for example `runs/my-analysis/`. From there, use `uv run --project /path/to/checkout --locked structphy …` with paths relative to the run directory. See `uv run --locked structphy --help` for all options.
+
+## Folding on an HPC
+
+Folding runs directly in this repository's Python environment with the optional
+`structphy[fold]` dependencies:
+
+```sh
+uv sync --locked --extra fold
+uv run --locked --extra fold structphy fold \
+  --fasta reference.fasta --fold-dir runs/reference-folds \
+  --n-variants 10 --dropout 0.1 --fold-seed 42
+```
+
+Run in an allocated CUDA GPU job. Choose the dropout rate for your experiment;
+use zero for a baseline. Copy the resulting PDB directory to the Mac and use
+`--structdir` with the base install. The [folding guide](docs/folding.md)
+covers scheduler setup, offline checkpoints, reproducibility, and the existing
+FASTA parser limitations.
