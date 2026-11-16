@@ -1,48 +1,49 @@
-from typing import List
-import pandas as pd
 import subprocess
-from tqdm.auto import tqdm
 from multiprocessing import Pool
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pandas as pd
+from tqdm.auto import tqdm
+
+from structphy.executables import find_executable
 
 
 def fastme(phylip_matrix: str) -> str:
-    # TODO This is a total hack, using stderr as an alternative pipe
-    # Works fine if the command never fails :)
-    command = ['./.structphy/fastme', '-i', '/dev/stdin', '-I', '/dev/null', '-O', '/dev/null', '-o', '/dev/stderr', '-s', '-m', 'NJ']
-    result = subprocess.run(command, input=phylip_matrix.encode(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    executable = find_executable("fastme")
+    with TemporaryDirectory() as directory:
+        workdir = Path(directory)
+        (workdir / "matrix").write_text(phylip_matrix)
+        subprocess.run(
+            [executable, "-i", "matrix", "-I", "info", "-O", "matrix.out", "-o", "tree", "-s", "-m", "NJ"],
+            cwd=workdir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return (workdir / "tree").read_text().strip()
 
-    newick = result.stderr.decode().strip()
-    return newick
 
-def convert_matrix_to_phylip(distance_df: pd.DataFrame) -> str: 
+def convert_matrix_to_phylip(distance_df: pd.DataFrame) -> str:
+    rows = [str(len(distance_df))]
+    for name, row in distance_df.iterrows():
+        label = str(name).split("#")[0].replace(" ", "_")
+        values = " ".join(f"{value:.8f}" for value in row)
+        rows.append(f"{label} {values}")
+    return "\n".join(rows) + "\n"
 
-    split_bootstrap_id = lambda x: x.split('#')[0]
-    distance_df.index = distance_df.index.map(split_bootstrap_id)
-    distance_df.columns = distance_df.columns.map(split_bootstrap_id)
 
-    phylip_out = ""
-    phylip_out += (str(len(distance_df))+'\n')
-    for i, row in distance_df.iterrows():
-        phylip_out += (i+" "+" ".join(f'{x:.8f}' for x in list(row.values))+'\n')
-
-    return phylip_out
-
-# Wrapper required for multiprocessing
 def matrix_to_fastme_newick(distance_df: pd.DataFrame) -> str:
-    phylip_matrix = convert_matrix_to_phylip(distance_df)
-    fastme_newick = fastme(phylip_matrix)
-    return fastme_newick
+    return fastme(convert_matrix_to_phylip(distance_df))
 
-def matrices_to_fastme_newick(distance_dfs: List[pd.DataFrame], n_threads: int) -> List[str]:
-    
-    fastme_trees = []
+
+def matrices_to_fastme_newick(distance_dfs: list[pd.DataFrame], n_threads: int) -> list[str]:
     with Pool(n_threads) as pool:
-        for fastme_result in tqdm(
-            pool.imap_unordered(matrix_to_fastme_newick, distance_dfs),
-            total=len(distance_dfs),
-            desc='Building trees',
-            ascii=True,
-            ):
-            fastme_trees.append(fastme_result)
-    
-    return fastme_trees
+        return list(
+            tqdm(
+                pool.imap(matrix_to_fastme_newick, distance_dfs),
+                total=len(distance_dfs),
+                desc="Building trees",
+                ascii=True,
+            )
+        )

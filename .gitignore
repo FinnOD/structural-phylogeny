@@ -155,3 +155,15 @@ cython_debug/
 /human497
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+# Windows and macOS file metadata
+Thumbs.db
+
+# Project tooling and default analysis outputs
+.ruff_cache/
+.ty_cache/
+/bootstrap_matrices/
+/bootstrap_trees.newick
+/consensus_tree.newick
+/upgma_tree.newick
+/boostrapped_upgma_tree.newick
+/mean_distance_matrix.csv

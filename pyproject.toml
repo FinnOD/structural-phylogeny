@@ -1,0 +1,103 @@
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[project]
+name = "structphy"
+version = "0.0.1"
+description = "Create phylogenetic trees from protein structure"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Finn O'Donoghue", email = "finnodonoghue@gmail.com" }]
+keywords = ["protein", "bioinformatics", "phylogenetics"]
+dependencies = [
+    "click>=8.1",
+    "dendropy>=4.6,<6",
+    "ete3>=3.1.3,<4",
+    "lmfit>=1.2",
+    "numpy>=1.26,<3",
+    "pandas>=2.2,<4",
+    "phylodm>=3.1,<4",
+    "requests>=2.32",
+    "six>=1.16", # Imported by ETE 3 but missing from its package metadata.
+    "tqdm>=4.65",
+]
+
+[project.urls]
+Repository = "https://github.com/finnod/structural-phylogeny"
+
+[project.scripts]
+structphy = "structphy.cli:main"
+
+[project.optional-dependencies]
+folding = ["docker>=7.1,<8"]
+
+[dependency-groups]
+dev = ["pytest>=8.4", "ruff>=0.15", "ty>=0.0.30"]
+research = [
+    "ipykernel>=6.29",
+    "jupyterlab>=4.4",
+    "matplotlib>=3.9",
+    "plotly>=6",
+    "seaborn>=0.13",
+]
+
+[tool.uv]
+required-version = ">=0.13"
+
+[tool.uv.build-backend]
+module-root = ""
+source-include = ["tests/**", "uv.lock", ".python-version"]
+source-exclude = [
+    "**/*.ipynb",
+    "**/.DS_Store",
+    "structphy/example_data/**/*.pdb",
+]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py312"
+extend-exclude = [
+    ".structphy",
+    "etc",
+    "notebooks",
+    "structphy/example_data",
+    "*.ipynb",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "SIM", "I", "C4", "ARG", "PTH", "PT", "TRY"]
+extend-select = [
+    "RET",
+    "PERF",
+    "N815",
+    "N816",
+    "N818",
+    "RUF046",
+    "RUF059",
+    "RUF100",
+]
+ignore = ["SIM108"]
+extend-ignore = ["RUF010", "RET504"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["ete3"]
+
+[tool.ty.src]
+include = ["structphy", "tests"]
+exclude = ["structphy/example_data", "**/*.ipynb"]
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"
+
+[tool.ruff.lint.per-file-ignores]
+"structphy/cli.py" = ["TRY003"] # Click exceptions carry user-facing messages.
+
+[tool.ty.analysis]
+allowed-unresolved-imports = [
+    "docker",
+    "docker.types",
+] # Installed with the folding extra.
