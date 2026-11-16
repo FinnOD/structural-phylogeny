@@ -35,7 +35,7 @@ uv run --locked structphy --structdir structphy/example_data/kindom_structs \
 
 Use `--dmdir` to reuse a directory of distance-matrix CSVs. Each CSV should have row labels in the first column and matching column labels in the same order. Use `--base-tree path/to/tree.newick` to apply bootstrap support to a supplied tree with matching taxa. By default, StructPhy estimates branch lengths on the consensus tree before applying support. The seed controls PDB variant selection. Keep the input files and native tool versions fixed when comparing runs.
 
-Intermediate files are written to the working directory, including `mean_distance_matrix.csv`, `bootstrap_trees.newick`, and `consensus_tree.newick`. Structure runs also write `bootstrap_matrices/`. Use a separate working directory for each run to keep results together. From there, use `uv run --project /absolute/path/to/checkout --locked structphy …`.
+Intermediate files are written to the working directory, including `mean_distance_matrix.csv`, `bootstrap_trees.newick`, and `consensus_tree.newick`. Structure runs also write `bootstrap_matrices/`. To keep results together and out of Git, use a separate working directory for each run under `.local/runs/`. From there, use `uv run --project /absolute/path/to/checkout --locked structphy …`. If your native tools are in the checkout’s `.structphy/` directory, set `STRUCTPHY_CACHE_DIR` to that absolute path.
 
 FASTA input uses the optional Docker folding workflow. Install its Python dependency with `uv sync --locked --extra folding` and run it with `uv run --locked --extra folding structphy --fasta input.fasta`. This mode requires a Docker daemon with NVIDIA GPU access and the configured folding image.
 
