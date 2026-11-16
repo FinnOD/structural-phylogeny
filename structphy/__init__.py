@@ -18,6 +18,3 @@ from structphy.generate_matrices import (
 )
 from structphy.generate_matrices import make_fake_outgroups as make_fake_outgroups
 from structphy.generate_trees import matrices_to_fastme_newick as matrices_to_fastme_newick
-from structphy.install_executables import install_consense as install_consense
-from structphy.install_executables import install_fastme as install_fastme
-from structphy.install_executables import install_tmalign as install_tmalign

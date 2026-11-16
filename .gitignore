@@ -23,6 +23,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# StructPhy native tools, local archives, and runs
-/.structphy/
-/.local/
+# Local research archives and runs
+/archive/
+/runs/

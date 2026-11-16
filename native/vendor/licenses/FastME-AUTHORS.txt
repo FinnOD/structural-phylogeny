@@ -1,0 +1,10 @@
+FastME software authors
+=================================
+
+Vincent Lefort
+ LIRMM, UMR 5506 - CNRS et Universite de Montpellier, Montpellier, France
+ e-mail : vincent.lefort@lirmm.fr
+
+Olivier Gascuel
+ ISYEB - Muséum National d'Histoire Naturelle, Paris, France
+ e-mail : olivier.gascuel@mnhn.fr

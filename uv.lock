@@ -1531,7 +1531,6 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "phylodm" },
-    { name = "requests" },
     { name = "six" },
     { name = "tqdm" },
 ]
@@ -1565,7 +1564,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "pandas", specifier = ">=2.2,<4" },
     { name = "phylodm", specifier = ">=3.1,<4" },
-    { name = "requests", specifier = ">=2.32" },
     { name = "six", specifier = ">=1.16" },
     { name = "tqdm", specifier = ">=4.65" },
 ]

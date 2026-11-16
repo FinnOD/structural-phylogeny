@@ -1,12 +1,13 @@
 [build-system]
-requires = ["uv_build>=0.13,<0.14"]
-build-backend = "uv_build"
+requires = ["hatchling>=1.33,<2"]
+build-backend = "hatchling.build"
 
 [project]
 name = "structphy"
 version = "0.0.1"
 description = "Create phylogenetic trees from protein structure"
 readme = "README.md"
+license-files = ["native/vendor/licenses/*.txt"]
 requires-python = ">=3.12,<3.13"
 authors = [{ name = "Finn O'Donoghue", email = "finnodonoghue@gmail.com" }]
 keywords = ["protein", "bioinformatics", "phylogenetics"]
@@ -18,7 +19,6 @@ dependencies = [
     "numpy>=1.26,<3",
     "pandas>=2.2,<4",
     "phylodm>=3.1,<4",
-    "requests>=2.32",
     "six>=1.16", # Imported by ETE 3 but missing from its package metadata.
     "tqdm>=4.65",
 ]
@@ -44,26 +44,44 @@ research = [
 
 [tool.uv]
 required-version = ">=0.13"
-
-[tool.uv.build-backend]
-module-root = ""
-source-include = ["tests/**", "uv.lock", ".python-version"]
-source-exclude = [
-    "**/*.ipynb",
-    "**/.DS_Store",
-    "structphy/example_data/**/*.pdb",
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "native/build_hook.py" },
+    { file = "native/vendor/**" },
+    { env = "CC" },
+    { env = "CXX" },
+    { env = "CPPFLAGS" },
+    { env = "CFLAGS" },
+    { env = "CXXFLAGS" },
+    { env = "LDFLAGS" },
+    { env = "MACOSX_DEPLOYMENT_TARGET" },
+    { env = "SDKROOT" },
 ]
+
+[tool.hatch.build]
+exclude = [".DS_Store", "__pycache__", "/structphy/example_data"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["structphy", "native", "tests", "docs/build-system.md", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["structphy"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "native/build_hook.py"
+
+[tool.hatch.build.targets.wheel.extra-metadata]
+"native/vendor/README.md" = "native/README.md"
+"native/vendor/fastme-2.1.6.4.tar.gz" = "native/fastme-2.1.6.4.tar.gz"
+"native/build_hook.py" = "native/build_hook.py"
 
 [tool.ruff]
 line-length = 120
 indent-width = 4
 target-version = "py312"
 extend-exclude = [
-    ".structphy",
-    "etc",
-    "notebooks",
+    "native/vendor",
     "structphy/example_data",
-    "*.ipynb",
 ]
 
 [tool.ruff.lint]
@@ -85,13 +103,14 @@ extend-ignore = ["RUF010", "RET504"]
 known-third-party = ["ete3"]
 
 [tool.ty.src]
-include = ["structphy", "tests"]
+include = ["structphy", "tests", "native/build_hook.py"]
 exclude = ["structphy/example_data", "**/*.ipynb"]
 
 [tool.pytest.ini_options]
 minversion = "8.4"
 testpaths = ["tests"]
 addopts = "--strict-config --strict-markers"
+markers = ["packaging: builds and installs a wheel in a fresh environment"]
 
 [tool.ruff.lint.per-file-ignores]
 "structphy/cli.py" = ["TRY003"] # Click exceptions carry user-facing messages.
@@ -100,4 +119,5 @@ addopts = "--strict-config --strict-markers"
 allowed-unresolved-imports = [
     "docker",
     "docker.types",
-] # Installed with the folding extra.
+    "hatchling.builders.hooks.plugin.interface",
+] # Optional folding and isolated build dependencies.
